@@ -27,7 +27,7 @@ class CTM{
         global $post;
         global $module_style_hooks;
 
-        if($post->post_type == 'page'){
+        if($post && $post->post_type == 'page'){
             $tool = get_post_meta($post->ID,CTM_TOOLS_META,true);
             if($tool){
                 if ( isset( $module_style_hooks[ $tool ] ) && is_callable( $module_style_hooks[ $tool ] ) ) {
@@ -60,7 +60,7 @@ class CTM{
     public function LoadToolTemplate($template){
         global $post;
 
-        if ($post->post_type == 'page'){
+        if ($post && $post->post_type == 'page'){
             $istool = $this->IsTool($post->ID);
             if($istool){
                 $tool_template = CTM_PLUGIN_DIR . 'templates/tool-template.php';
@@ -90,7 +90,7 @@ class CTM{
     }
     public function CustomLinks($actions, $post){
         // Only for pages and if the user has edit permissions
-        if ($post->post_type == 'page' && current_user_can('manage_options')){
+        if ($post && $post->post_type == 'page' && current_user_can('manage_options')){
             $istool = $this->IsTool($post->ID);
             if($istool){
                 $edit_url = admin_url('admin.php?page=' . CTM_PAGE_SLUG);
@@ -107,7 +107,7 @@ class CTM{
         return $actions;
     }
     public function PostState($post_states,$post){
-        if ($post->post_type == 'page' && current_user_can('manage_options')){
+        if ($post && $post->post_type == 'page' && current_user_can('manage_options')){
             $istool = $this->IsTool($post->ID);
             if($istool){
                 $module = get_post_meta($post->ID,CTM_TOOLS_META,true);
@@ -230,6 +230,14 @@ class CTM{
                     break;
                 case 'delete':
                     if ( is_dir( $module_path ) ) {
+                        // Temporarily include the module file so it registers its uninstall hook.
+                        include_once $module_file;
+
+                        // Check if a uninstall callback is registered.
+                        global $module_uninstall_hooks;
+                        if ( isset( $module_uninstall_hooks[ $tool ] ) && is_callable( $module_uninstall_hooks[ $tool ] ) ) {
+                            call_user_func( $module_uninstall_hooks[ $tool ] );
+                        }
                         // Delete the tool folder recursively.
                         $this->CTMRRMDIR( $module_path );
                         if ( isset( $active_modules[ $tool ] ) ) {
@@ -539,7 +547,7 @@ class CTM{
                     echo '<a href="' . esc_url( $action_url ) . '">' . ( $is_active ? 'Deactivate' : 'Activate' ) . '</a>';
                     // Show Delete link only if the module is deactivated.
                     if ( ! $is_active ) {
-                        echo ' | <a href="' . esc_url( $delete_url ) . '" onclick="return confirm(\'Are you sure you want to delete this Tool?\');">Delete</a>';
+                        echo ' | <a style="color: #b32d2e;" href="' . esc_url( $delete_url ) . '" onclick="return confirm(\'Are you sure you want to delete this Tool?\');">Delete</a>';
                     }
                     // Append any settings links provided by the module.
                     echo $settings_links;

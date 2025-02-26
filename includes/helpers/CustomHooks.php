@@ -4,29 +4,42 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-global $module_activation_hooks, $module_deactivation_hooks, $module_style_hooks;
+global $module_activation_hooks, $module_deactivation_hooks, $module_uninstall_hooks, $module_style_hooks;
 $module_activation_hooks   = array();
 $module_deactivation_hooks = array();
 $module_style_hooks = array();
+$module_uninstall_hooks = array();
 
 
 
 /**
+ * Registers a module Uninstall Hook.
+ *
+ * @param string   $module_basename The module's basename (or unique identifier).
+ * @param callable $callback    The function to call when the module is uninstalled.
+ */
+if ( ! function_exists( 'register_module_uninstall' ) ) {
+    function register_module_uninstall( $module_basename, $callback ) {
+        global $module_uninstall_hooks;
+        $module_uninstall_hooks[ $module_basename ] = $callback;
+    }
+}
+/**
  * Registers a module Style callback.
  *
- * @param string   $module_file The module's main file path (or unique identifier).
- * @param callable $callback    The function to call when the module is activated.
+ * @param string   $module_basename The module's basename (or unique identifier).
+ * @param callable $callback    The function to call for loading styles or scripts.
  */
 if ( ! function_exists( 'register_module_styling' ) ) {
-    function register_module_styling( $module_file, $callback ) {
+    function register_module_styling( $module_basename, $callback ) {
         global $module_style_hooks;
-        $module_style_hooks[ $module_file ] = $callback;
+        $module_style_hooks[ $module_basename ] = $callback;
     }
 }
 /**
  * Registers a module activation callback.
  *
- * @param string   $module_basename The module's main file path (or unique identifier).
+ * @param string   $module_basename The module's basename (or unique identifier).
  * @param callable $callback    The function to call when the module is activated.
  */
 if ( ! function_exists( 'register_module_activation' ) ) {
@@ -39,7 +52,7 @@ if ( ! function_exists( 'register_module_activation' ) ) {
 /**
  * Registers a module deactivation callback.
  *
- * @param string   $module_basename The module's main file path (or unique identifier).
+ * @param string   $module_basename The module's basename (or unique identifier).
  * @param callable $callback    The function to call when the module is deactivated.
  */
 if ( ! function_exists( 'register_module_deactivation' ) ) {
@@ -51,8 +64,8 @@ if ( ! function_exists( 'register_module_deactivation' ) ) {
 /**
  * Registers a module page.
  *
- * @param string   $module_basename The module's main file path (or unique identifier).
- * @param string   $content    The function to call when the module is deactivated.
+ * @param string   $module_basename The module's basename (or unique identifier).
+ * @param string   $content    The function to call when the module needs to register a page.
  */
 if ( ! function_exists( 'register_module_page' ) ) {
     function register_module_page( $module_basename, $content ) {
@@ -81,13 +94,13 @@ if ( ! function_exists( 'register_module_page' ) ) {
 /**
  * UnRegisters a module page.
  *
- * @param string   $module_basename The module's main file path (or unique identifier).
+ * @param string   $module_basename The module's basename (or unique identifier).
  */
-if ( ! function_exists( 'unregister_module_page' ) ) {
-    function unregister_module_page( $module_basename ) {
+if ( ! function_exists( 'unregister_module_pages' ) ) {
+    function unregister_module_pages( $module_basename ) {
         
         $pages = ctm_module_page_exists($module_basename);
-        // print_r($pages);
+
         if($pages){
             foreach($pages as $page){
                 wp_delete_post($page->ID,true);
@@ -101,20 +114,20 @@ if ( ! function_exists( 'unregister_module_page' ) ) {
 /**
  * Check if the module page exists.
  *
- * @param string   $module_basename The module's main file path (or unique identifier).
+ * @param string   $module_basename The module's basename (or unique identifier).
  */
 if ( ! function_exists( 'ctm_module_page_exists' ) ) {
     function ctm_module_page_exists( $module_basename=null ) {
         $args = array(
-            'post_type'  => 'page', // Replace with your post type (e.g., 'page', 'product')
-            'posts_per_page' => -1, // Retrieve all matching posts
+            'post_type'  => 'page',
+            'posts_per_page' => -1,
         );
         if ($module_basename !== null) {
             $args['meta_query'] = array(
                 array(
                     'key'   => CTM_TOOLS_META,
-                    'value' => $module_basename, // The exact value to match
-                    'compare' => '=', // Default is '=', but you can use 'LIKE', '>', '<', etc.
+                    'value' => $module_basename,
+                    'compare' => '=',
                 ),
             );
         }
@@ -123,17 +136,13 @@ if ( ! function_exists( 'ctm_module_page_exists' ) ) {
             $args['meta_query'] = array(
                 array(
                     'key'     => CTM_TOOLS_META,
-                    'compare' => 'EXISTS', // Checks if the meta key exists
+                    'compare' => 'EXISTS',
                 ),
             );
         }
         $query = new WP_Query($args);
 
         if ($query->have_posts()) {
-            // while ($query->have_posts()) {
-            //     $query->the_post();
-            //     echo 'Post ID: ' . get_the_ID() . ' has the "_tools" meta with value "hammer".<br>';
-            // }
             return $query->posts;
         } else {
             return null;
