@@ -69,6 +69,7 @@ class CTM{
                 }
             }
         }
+        return $template;
     }
     public function RestrictGutenbergEditor(){
         $istool = $this->IsTool();
