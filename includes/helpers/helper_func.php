@@ -23,3 +23,20 @@ if ( ! function_exists( 'GetSlugByPluginDir' ) ) {
         return ( false !== $slug ) ? $slug : null;
     }
 }
+
+function RRMDIR( $dir ) {
+    if ( is_dir( $dir ) ) {
+        $objects = scandir( $dir );
+        foreach ( $objects as $object ) {
+            if ( $object !== '.' && $object !== '..' ) {
+                $path = $dir . DIRECTORY_SEPARATOR . $object;
+                if ( is_dir( $path ) ) {
+                    RRMDIR( $path );
+                } else {
+                    unlink( $path );
+                }
+            }
+        }
+        rmdir( $dir );
+    }
+}

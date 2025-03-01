@@ -6,8 +6,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 require_once CTM_PLUGIN_DIR . "includes/helpers/helper_func.php";
 require_once CTM_PLUGIN_DIR . "includes/helpers/CustomHooks.php";
+require_once CTM_PLUGIN_DIR . "includes/ScriptTools.php";
 
 class CTM{
+    private $scripttools;
     public function __construct() {
         add_action( 'plugins_loaded', array($this,'LoadModules'), 5 );
         add_action( 'admin_menu', array($this,'AdminMenu') );
@@ -22,6 +24,8 @@ class CTM{
         // load tools template
         add_filter('page_template', array($this,'LoadToolTemplate'));
         add_action('wp_enqueue_scripts', array($this,'LoadToolsStyle'));
+        // Script Tools
+        $this->scripttools = new ScriptTools();
     }
     public function LoadToolsStyle(){
         global $post;
@@ -240,7 +244,7 @@ class CTM{
                             call_user_func( $module_uninstall_hooks[ $tool ] );
                         }
                         // Delete the tool folder recursively.
-                        $this->CTMRRMDIR( $module_path );
+                        RRMDIR( $module_path );
                         if ( isset( $active_modules[ $tool ] ) ) {
                             unset( $active_modules[ $tool ] );
                             update_option( CTM_ACTIVE_MODULES_OPTION, $active_modules );
@@ -275,22 +279,6 @@ class CTM{
             'ctm-add-tool',              // Menu slug
             array($this,'CTMAddTool')          // Callback function
         );
-    }
-    public function CTMRRMDIR( $dir ) {
-        if ( is_dir( $dir ) ) {
-            $objects = scandir( $dir );
-            foreach ( $objects as $object ) {
-                if ( $object !== '.' && $object !== '..' ) {
-                    $path = $dir . DIRECTORY_SEPARATOR . $object;
-                    if ( is_dir( $path ) ) {
-                        $this->CTMRRMDIR( $path );
-                    } else {
-                        unlink( $path );
-                    }
-                }
-            }
-            rmdir( $dir );
-        }
     }
     public function CTMHandleToolUpload() {
         /**
@@ -368,7 +356,7 @@ class CTM{
     
         if ( ! $zip->extractTo( $temp_dir ) ) {
             $zip->close();
-            $this->CTMRRMDIR( $temp_dir );
+            RRMDIR( $temp_dir );
             return array(
                 'success' => false,
                 'message' => "File {$file_name}: Failed to extract the ZIP file.",
@@ -381,7 +369,7 @@ class CTM{
             return $item !== '.' && $item !== '..';
         } );
         if ( count( $temp_items ) !== 1 ) {
-            $this->CTMRRMDIR( $temp_dir );
+            RRMDIR( $temp_dir );
             return array(
                 'success' => false,
                 'message' => "File {$file_name}: Invalid tool structure. The ZIP file should contain exactly one folder.",
@@ -392,7 +380,7 @@ class CTM{
     
         // Prevent recursive loading: do not allow uploading the tool manager itself.
         if ( $tool_folder === basename( CTM_PLUGIN_DIR ) ) {
-            $this->CTMRRMDIR( $temp_dir );
+            RRMDIR( $temp_dir );
             return array(
                 'success' => false,
                 'message' => "File {$file_name}: Uploading the tool manager itself is not allowed.",
@@ -402,7 +390,7 @@ class CTM{
         $tool_folder_path = $temp_dir . $tool_folder . '/';
         $main_file = $tool_folder_path . $tool_folder . '.php';
         if ( ! file_exists( $main_file ) ) {
-            $this->CTMRRMDIR( $temp_dir );
+            RRMDIR( $temp_dir );
             return array(
                 'success' => false,
                 'message' => "File {$file_name}: Invalid tool structure. The main file ({$tool_folder}.php) was not found.",
@@ -411,7 +399,7 @@ class CTM{
     
         $destination = CTM_MODULES_DIR . $tool_folder;
         if ( file_exists( $destination ) ) {
-            $this->CTMRRMDIR( $temp_dir );
+            RRMDIR( $temp_dir );
             return array(
                 'success' => false,
                 'message' => "File {$file_name}: A tool with the same name already exists.",
@@ -420,14 +408,14 @@ class CTM{
     
         wp_mkdir_p( CTM_MODULES_DIR );
         if ( ! rename( $tool_folder_path, $destination ) ) {
-            $this->CTMRRMDIR( $temp_dir );
+            RRMDIR( $temp_dir );
             return array(
                 'success' => false,
                 'message' => "File {$file_name}: Failed to move the tool folder.",
             );
         }
     
-        $this->CTMRRMDIR( $temp_dir );
+        RRMDIR( $temp_dir );
         return array(
             'success' => true,
             'message' => "File {$file_name}: Tool uploaded and installed successfully.",
@@ -576,9 +564,11 @@ class CTM{
         if ( false === get_option( CTM_ACTIVE_MODULES_OPTION ) ) {
             update_option( CTM_ACTIVE_MODULES_OPTION, array() );
         }
+        $this->scripttools->Activate();
     }
     public function CTMDeactivate() {
         $this->UnLoadModules();
         delete_option(CTM_ACTIVE_MODULES_OPTION);
+        $this->scripttools->Deactivate();
     }
 }
